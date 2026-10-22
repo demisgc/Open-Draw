@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Draw - Sorteador Profissional de Pesquisas e Formulários</title>
+    <!-- PapaParse para parsing profissional de CSV (suporta vírgula, ponto-e-vírgula, aspas e quebras de linha) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Canvas Confetti para celebração visual dos ganhadores -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --bg-base: #020617;
+            --bg-surface: #0f172a;
+            --bg-surface-elevated: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --success: #10b981;
+            --success-hover: #059669;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --purple: #a855f7;
+            --badge-titular: #10b981;
+            --badge-suplente: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.25rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-tag {
+            font-size: 0.75rem;
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--primary);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            padding: 0.2rem 0.55rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            letter-spacing: 0;
+        }
+
+        .icon-box {
+            background: linear-gradient(135deg, var(--primary), var(--purple));
+            padding: 0.5rem;
+            border-radius: 0.6rem;
+            display: flex;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            width: 100%;
+            flex: 1;
+        }
+
+        /* Stepper visual */
+        .stepper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 2.5rem;
+        }
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .step-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background-color: var(--bg-surface-elevated);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+        .step-item.active {
+            color: var(--text-main);
+        }
+        .step-item.active .step-circle {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            color: white;
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+        .step-divider {
+            width: 40px;
+            height: 1px;
+            background-color: var(--border-color);
+        }
+
+        /* Utilidades */
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.4s ease forwards; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.04); }
+            100% { transform: scale(1); }
+        }
+
+        /* Cards */
+        .card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--purple));
+        }
+
+        h2 { font-size: 1.5rem; margin-bottom: 0.5rem; font-weight: 700; }
+        h3 { font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--text-main); }
+        p.subtitle { color: var(--text-muted); margin-bottom: 1.75rem; font-size: 0.95rem; line-height: 1.5; }
+
+        /* Botões */
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 0.75rem 1.4rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); transform: translateY(-1px); }
+        
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-success:hover:not(:disabled) { background-color: var(--success-hover); transform: translateY(-1px); }
+        
+        .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+        .btn-outline:hover:not(:disabled) { background-color: var(--bg-surface-elevated); border-color: var(--text-muted); }
+
+        .btn-secondary { background-color: var(--bg-surface-elevated); border: 1px solid var(--border-color); color: var(--text-main); }
+        .btn-secondary:hover:not(:disabled) { background-color: #273549; }
+
+        /* Step 1: Upload & Drag Drop */
+        #step-1 { max-width: 620px; margin: 1.5rem auto; text-align: center; }
+        .drop-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 0.75rem;
+            padding: 3rem 2rem;
+            background-color: rgba(15, 23, 42, 0.5);
+            transition: all 0.2s;
+            cursor: pointer;
+            margin-bottom: 1.5rem;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--primary);
+            background-color: rgba(99, 102, 241, 0.05);
+        }
+        .upload-icon { width: 3.5rem; height: 3.5rem; color: var(--primary); margin: 0 auto 1rem auto; display: block; }
+        #file-input { display: none; }
+
+        .demo-bar {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Step 2: Configuração Avançada */
+        #step-2 { max-width: 900px; margin: 1rem auto; }
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        @media(min-width: 768px) {
+            .config-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        .section-box {
+            background-color: var(--bg-surface-elevated);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 0.75rem;
+            max-height: 240px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            background-color: var(--bg-surface);
+            padding: 0.6rem 0.8rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 0.88rem;
+            transition: all 0.15s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .checkbox-label:hover { border-color: var(--primary); }
+        .checkbox-label input { width: 1.1rem; height: 1.1rem; accent-color: var(--primary); cursor: pointer; }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label { display: block; margin-bottom: 0.4rem; color: var(--text-muted); font-size: 0.9rem; font-weight: 500; }
+        
+        .form-control {
+            width: 100%;
+            background-color: var(--bg-base);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 0.65rem 0.85rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+        .form-control:focus { outline: none; border-color: var(--primary); }
+
+        .badge-stat {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--primary);
+            padding: 0.2rem 0.6rem;
+            border-radius: 0.35rem;
+            font-weight: 600;
+        }
+
+        /* Step 3: Painel de Sorteio */
+        #step-3 { display: grid; grid-template-columns: 1fr; gap: 2rem; }
+        @media(min-width: 960px) {
+            #step-3 { grid-template-columns: 380px 1fr; }
+        }
+
+        .controls-panel { display: flex; flex-direction: column; gap: 1.5rem; }
+        
+        .timer-box {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            box-shadow: inset 0 0 60px rgba(99, 102, 241, 0.08);
+            position: relative;
+        }
+        .timer-box h3 { color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.75rem; }
+        .timer-number { font-size: 4.5rem; font-weight: 800; color: var(--primary); line-height: 1; margin-bottom: 0.75rem; }
+        
+        .shuffle-preview {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .timer-status { color: var(--warning); font-size: 0.88rem; font-weight: 500; }
+
+        .draw-stats {
+            background-color: var(--bg-surface-elevated);
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+        .draw-stats div span {
+            display: block;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-top: 0.2rem;
+        }
+
+        .results-panel { display: flex; flex-direction: column; min-height: 600px; }
+        .results-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .export-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .winners-list {
+            flex: 1;
+            background-color: var(--bg-surface-elevated);
+            border-radius: 1rem;
+            border: 1px solid var(--border-color);
+            padding: 1.25rem;
+            overflow-y: auto;
+            max-height: 640px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .winner-card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 0.6rem;
+            padding: 1rem 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: fadeIn 0.4s ease forwards;
+            gap: 1rem;
+        }
+
+        .winner-card.titular {
+            border-left: 4px solid var(--badge-titular);
+        }
+        .winner-card.suplente {
+            border-left: 4px solid var(--badge-suplente);
+        }
+
+        .winner-tag {
+            padding: 0.25rem 0.6rem;
+            border-radius: 0.35rem;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .tag-titular {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--badge-titular);
+        }
+        .tag-suplente {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--badge-suplente);
+        }
+
+        .winner-info { font-size: 1.05rem; font-weight: 600; color: #f1f5f9; }
+        .winner-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; }
+        .winner-time { font-size: 0.78rem; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
+        .empty-state { text-align: center; color: var(--text-muted); margin: auto; padding: 2rem; }
+
+        /* Modal */
+        #modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background: var(--bg-surface); border: 1px solid var(--border-color);
+            padding: 2rem; border-radius: 1rem; max-width: 440px; width: 90%;
+            text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7);
+        }
+        .modal-content p { margin-bottom: 1.5rem; font-size: 1rem; color: #e2e8f0; line-height: 1.5; }
+
+        /* Auditoria */
+        .audit-footer {
+            margin-top: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <div class="icon-box">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            </div>
+            Open Draw
+            <span class="logo-tag">Open Source</span>
+        </div>
+        <div id="reset-container" class="hidden">
+            <button class="btn-outline" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="resetApp()">Novo Sorteio</button>
+        </div>
+    </header>
+
+    <div class="container">
+        
+        <!-- Indicador de Passos -->
+        <div class="stepper">
+            <div id="step-ind-1" class="step-item active">
+                <div class="step-circle">1</div>
+                <span>Upload CSV</span>
+            </div>
+            <div class="step-divider"></div>
+            <div id="step-ind-2" class="step-item">
+                <div class="step-circle">2</div>
+                <span>Filtros & Regras</span>
+            </div>
+            <div class="step-divider"></div>
+            <div id="step-ind-3" class="step-item">
+                <div class="step-circle">3</div>
+                <span>Sorteio Oficial</span>
+            </div>
+        </div>
+
+        <!-- PASSO 1: UPLOAD DE CSV COM DRAG & DROP E DEMO -->
+        <div id="step-1" class="card fade-in">
+            <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <h2>Importar Respostas da Pesquisa</h2>
+                <p class="subtitle" style="margin-bottom: 1rem;">Arraste o arquivo .CSV exportado do Google Forms, Typeform ou Excel, ou clique para selecionar.</p>
+                <button class="btn-primary" type="button">
+                    Selecionar Arquivo CSV
+                </button>
+                <input type="file" id="file-input" accept=".csv,text/csv">
+            </div>
+
+            <div class="demo-bar">
+                <span>Quer testar antes?</span>
+                <button class="btn-secondary" style="font-size: 0.85rem; padding: 0.4rem 0.9rem;" onclick="loadDemoSurveyData()">
+                    ⚡ Carregar Dados de Demonstração
+                </button>
+            </div>
+        </div>
+
+        <!-- PASSO 2: FILTROS, DEDUPLICAÇÃO E CONFIGURAÇÃO -->
+        <div id="step-2" class="card hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h2>Configurar Regras do Sorteio</h2>
+                <span class="badge-stat"><span id="total-participants">0</span> respondentes válidos</span>
+            </div>
+            <p class="subtitle">Ajuste os filtros de integridade da pesquisa e escolha as informações a serem exibidas.</p>
+
+            <div class="config-grid">
+                <!-- Coluna 1: Regras da Pesquisa -->
+                <div class="section-box">
+                    <h3>Regras & Integridade</h3>
+                    
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-main);">
+                            <input type="checkbox" id="enable-dedup" checked style="width: 1.1rem; height: 1.1rem; accent-color: var(--primary);">
+                            <strong>Remover respostas duplicadas (1 voto por pessoa)</strong>
+                        </label>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Garante que participantes que responderam múltiplas vezes concorram apenas 1 vez.</p>
+                    </div>
+
+                    <div class="form-group" id="dedup-field-group">
+                        <label for="dedup-column">Coluna identificadora única:</label>
+                        <select id="dedup-column" class="form-control"></select>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-main);">
+                            <input type="checkbox" id="enable-filter" style="width: 1.1rem; height: 1.1rem; accent-color: var(--primary);">
+                            <strong>Filtrar participantes por resposta</strong>
+                        </label>
+                    </div>
+
+                    <div id="filter-details" class="hidden">
+                        <div class="form-group">
+                            <label for="filter-column">Coluna do filtro:</label>
+                            <select id="filter-column" class="form-control"></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-value">Valor exato ou termo obrigatório:</label>
+                            <input type="text" id="filter-value" class="form-control" placeholder="Ex: Sim, Completo, 10">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coluna 2: Configuração dos Sorteados e Visualização -->
+                <div class="section-box">
+                    <h3>Parâmetros do Sorteio</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="winner-count">Titulares (Ganhadores):</label>
+                            <input type="number" id="winner-count" class="form-control" min="1" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="backup-count">Suplentes (Reservas):</label>
+                            <input type="number" id="backup-count" class="form-control" min="0" value="0">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="draw-speed">Tempo de suspense da contagem:</label>
+                        <select id="draw-speed" class="form-control">
+                            <option value="0">Instantâneo (0 segundos)</option>
+                            <option value="3">Rápido (3 segundos)</option>
+                            <option value="5" selected>Ideal para apresentações (5 segundos)</option>
+                            <option value="10">Suspense máximo (10 segundos)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Quais colunas devem aparecer no card do sorteado?</label>
+                        <div id="checkbox-container" class="checkbox-grid">
+                            <!-- Gerado via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                <button class="btn-outline" onclick="showStep(1)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+                    Voltar ao Upload
+                </button>
+                <button class="btn-primary" onclick="finishSetup()">
+                    Avançar para o Sorteio
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- PASSO 3: TELA DE SORTEIO OFICIAL -->
+        <div id="step-3" class="hidden">
+            <div class="controls-panel card">
+                <h2>Mesa de Sorteio</h2>
+                <p class="subtitle" style="margin-bottom: 1rem;">O sorteio utiliza criptografia segura (Web Crypto API) para garantir total imparcialidade.</p>
+                
+                <div class="draw-stats">
+                    <div>Participantes<span id="stat-pool">0</span></div>
+                    <div>Titulares<span id="stat-titulares">0</span></div>
+                    <div>Suplentes<span id="stat-suplentes">0</span></div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                    <button id="draw-btn" class="btn-success" style="padding: 1rem; font-size: 1.15rem; width: 100%;" onclick="startDrawFlow()">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        Sortear Próximo
+                    </button>
+                    <button id="draw-all-btn" class="btn-secondary" style="font-size: 0.9rem;" onclick="drawRemainingInstantly()">
+                        ⚡ Sortear Todos Restantes de Uma Vez
+                    </button>
+                </div>
+
+                <div id="timer-container" class="timer-box hidden">
+                    <h3 id="timer-title">Sorteando</h3>
+                    <div id="countdown-display" class="timer-number">5</div>
+                    <div class="shuffle-preview" id="shuffle-preview">Embaralhando nomes...</div>
+                    <div id="remaining-display" class="timer-status">Preparando...</div>
+                </div>
+
+                <div class="audit-footer">
+                    <span>Auditável via Web Crypto API</span>
+                    <span id="audit-seed">Seed: Pronto</span>
+                </div>
+            </div>
+
+            <div class="results-panel">
+                <div class="results-header">
+                    <h2>Lista de Premiados</h2>
+                    <div class="export-actions">
+                        <button class="btn-outline" onclick="downloadLogCSV()" title="Exportar como planilha CSV">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Exportar CSV
+                        </button>
+                        <button class="btn-outline" onclick="downloadLogTXT()" title="Exportar comprovante em texto">
+                            TXT
+                        </button>
+                    </div>
+                </div>
+                <div id="winners-list" class="winners-list">
+                    <div class="empty-state" id="empty-state">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.4; margin-bottom: 1rem;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                        <p>Nenhum participante sorteado até o momento.</p>
+                        <p style="font-size: 0.85rem; margin-top: 0.25rem; opacity: 0.8;">Clique em "Sortear Próximo" para iniciar.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal de Alerta Customizado -->
+    <div id="modal-overlay" class="hidden">
+        <div class="modal-content fade-in">
+            <p id="modal-message">Mensagem aqui</p>
+            <button class="btn-primary" onclick="closeModal()">OK</button>
+        </div>
+    </div>
+
+    <script>
+        // ESTADO GLOBAL DA APLICAÇÃO - OPEN DRAW
+        let rawCsvData = [];
+        let filteredData = [];
+        let headers = [];
+        let availableIndices = [];
+        let winners = [];
+        let selectedFields = [];
+        
+        let targetTitulares = 1;
+        let targetSuplentes = 0;
+        let drawnTitularesCount = 0;
+        let drawnSuplentesCount = 0;
+        
+        let countdownTimer = null;
+        let shuffleInterval = null;
+        let isDrawing = false;
+        let drawSessionHash = "";
+
+        // ELEMENTOS DOM
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const step1 = document.getElementById('step-1');
+        const step2 = document.getElementById('step-2');
+        const step3 = document.getElementById('step-3');
+        const resetContainer = document.getElementById('reset-container');
+        
+        const stepInd1 = document.getElementById('step-ind-1');
+        const stepInd2 = document.getElementById('step-ind-2');
+        const stepInd3 = document.getElementById('step-ind-3');
+
+        const checkboxContainer = document.getElementById('checkbox-container');
+        const totalParticipantsSpan = document.getElementById('total-participants');
+        const inputWinnerCount = document.getElementById('winner-count');
+        const inputBackupCount = document.getElementById('backup-count');
+        const selectDrawSpeed = document.getElementById('draw-speed');
+        
+        const enableDedup = document.getElementById('enable-dedup');
+        const dedupFieldGroup = document.getElementById('dedup-field-group');
+        const dedupColumn = document.getElementById('dedup-column');
+        
+        const enableFilter = document.getElementById('enable-filter');
+        const filterDetails = document.getElementById('filter-details');
+        const filterColumn = document.getElementById('filter-column');
+        const filterValue = document.getElementById('filter-value');
+
+        const drawBtn = document.getElementById('draw-btn');
+        const drawAllBtn = document.getElementById('draw-all-btn');
+        const timerContainer = document.getElementById('timer-container');
+        const countdownDisplay = document.getElementById('countdown-display');
+        const shufflePreview = document.getElementById('shuffle-preview');
+        const remainingDisplay = document.getElementById('remaining-display');
+        const timerTitle = document.getElementById('timer-title');
+
+        const statPool = document.getElementById('stat-pool');
+        const statTitulares = document.getElementById('stat-titulares');
+        const statSuplentes = document.getElementById('stat-suplentes');
+        const auditSeedSpan = document.getElementById('audit-seed');
+
+        const winnersListDiv = document.getElementById('winners-list');
+        const emptyState = document.getElementById('empty-state');
+        
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalMessage = document.getElementById('modal-message');
+
+        // FUNÇÕES UTILITÁRIAS
+        function showModal(msg) {
+            modalMessage.textContent = msg;
+            modalOverlay.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            modalOverlay.classList.add('hidden');
+        }
+
+        function escapeHTML(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // Geração Criptograficamente Segura de Número Aleatório
+        function getSecureRandomInt(max) {
+            if (max <= 1) return 0;
+            const array = new Uint32Array(1);
+            window.crypto.getRandomValues(array);
+            return array[0] % max;
+        }
+
+        function generateSessionHash() {
+            const arr = new Uint8Array(8);
+            window.crypto.getRandomValues(arr);
+            return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+        }
+
+        function showStep(stepNumber) {
+            step1.classList.add('hidden');
+            step2.classList.add('hidden');
+            step3.classList.add('hidden');
+            resetContainer.classList.add('hidden');
+
+            stepInd1.classList.remove('active');
+            stepInd2.classList.remove('active');
+            stepInd3.classList.remove('active');
+
+            if (stepNumber === 1) {
+                step1.classList.remove('hidden');
+                stepInd1.classList.add('active');
+            }
+            if (stepNumber === 2) {
+                step2.classList.remove('hidden');
+                step2.classList.add('fade-in');
+                stepInd2.classList.add('active');
+            }
+            if (stepNumber === 3) {
+                step3.classList.remove('hidden');
+                step3.classList.add('fade-in');
+                stepInd3.classList.add('active');
+                resetContainer.classList.remove('hidden');
+            }
+        }
+
+        // DRAG & DROP
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files && files.length > 0) {
+                processFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files.length > 0) {
+                processFile(e.target.files[0]);
+            }
+        });
+
+        // PROCESSAMENTO DE CSV (PapaParse com Fallback)
+        function processFile(file) {
+            if (typeof Papa !== 'undefined') {
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: 'greedy',
+                    dynamicTyping: false,
+                    complete: function(results) {
+                        handleParsedData(results.data, results.meta.fields);
+                    },
+                    error: function(err) {
+                        showModal("Erro ao ler CSV: " + err.message);
+                    }
+                });
+            } else {
+                // Fallback caso CDN esteja temporariamente inacessível
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const text = event.target.result;
+                    const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+                    if (lines.length < 2) {
+                        showModal("O arquivo precisa conter ao menos o cabeçalho e uma linha de resposta.");
+                        return;
+                    }
+                    const delimiter = lines[0].includes(';') ? ';' : ',';
+                    const h = lines[0].split(delimiter).map(col => col.trim().replace(/^"|"$/g, ''));
+                    const data = lines.slice(1).map(line => {
+                        const vals = line.split(delimiter);
+                        let row = {};
+                        h.forEach((col, i) => {
+                            row[col] = vals[i] ? vals[i].trim().replace(/^"|"$/g, '') : '';
+                        });
+                        return row;
+                    });
+                    handleParsedData(data, h);
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        // DADOS DE DEMONSTRAÇÃO
+        function loadDemoSurveyData() {
+            const demoCSV = `Carimbo de data/hora,Nome Completo,E-mail,Nota da Pesquisa,Participar do Sorteio
+2026-10-22 14:01:10,Ana Clara Souza,ana.souza@gmail.com,10,Sim
+2026-10-22 14:02:44,Carlos Eduardo Silva,carlos.silva@outlook.com,9,Sim
+2026-10-22 14:05:12,Mariana Ribeiro,mariana.ribeiro@empresa.com,10,Sim
+2026-10-22 14:07:33,Lucas Gabriel Ferreira,lucas.ferreira@gmail.com,8,Sim
+2026-10-22 14:08:15,Beatriz Mendes,beatriz.mendes@gmail.com,7,Sim
+2026-10-22 14:10:02,Rodrigo Santos,rodrigo.santos@uol.com.br,10,Sim
+2026-10-22 14:12:49,Fernanda Oliveira,fernanda.oliveira@gmail.com,10,Sim
+2026-10-22 14:15:20,Gustavo Lima,gustavo.lima@yahoo.com,6,Não
+2026-10-22 14:16:30,Juliana Costa,juliana.costa@gmail.com,9,Sim
+2026-10-22 14:18:00,Ana Clara Souza,ana.souza@gmail.com,10,Sim
+2026-10-22 14:20:11,Thiago Martins,thiago.martins@hotmail.com,10,Sim
+2026-10-22 14:22:45,Camila Duarte,camila.duarte@gmail.com,8,Sim
+2026-10-22 14:25:19,Rafael Albuquerque,rafael.albuquerque@tech.com,10,Sim
+2026-10-22 14:27:01,Larissa Nogueira,larissa.nogueira@gmail.com,9,Sim
+2026-10-22 14:29:40,Felipe Guimarães,felipe.g@gmail.com,5,Sim`;
+
+            if (typeof Papa !== 'undefined') {
+                const results = Papa.parse(demoCSV, { header: true, skipEmptyLines: true });
+                handleParsedData(results.data, results.meta.fields);
+            } else {
+                showModal("Não foi possível carregar a demonstração offline.");
+            }
+        }
+
+        function handleParsedData(data, fields) {
+            rawCsvData = data.filter(row => Object.values(row).some(val => String(val).trim() !== ''));
+            headers = fields || Object.keys(rawCsvData[0] || {});
+
+            if (rawCsvData.length === 0) {
+                showModal("Nenhuma resposta válida encontrada no arquivo.");
+                return;
+            }
+
+            dedupColumn.innerHTML = '';
+            filterColumn.innerHTML = '';
+            checkboxContainer.innerHTML = '';
+
+            let suggestedDedupIndex = 0;
+            headers.forEach((h, idx) => {
+                const lower = h.toLowerCase();
+                const opt1 = new Option(h, h);
+                const opt2 = new Option(h, h);
+                dedupColumn.add(opt1);
+                filterColumn.add(opt2);
+
+                if (lower.includes('mail') || lower.includes('cpf') || lower.includes('identifica') || lower.includes('telefone')) {
+                    suggestedDedupIndex = idx;
+                }
+
+                const label = document.createElement('label');
+                label.className = 'checkbox-label';
+                const isDate = lower.includes('carimbo') || lower.includes('timestamp');
+                label.innerHTML = `
+                    <input type="checkbox" value="${escapeHTML(h)}" ${!isDate ? 'checked' : ''}>
+                    <span title="${escapeHTML(h)}">${escapeHTML(h)}</span>
+                `;
+                checkboxContainer.appendChild(label);
+            });
+
+            dedupColumn.selectedIndex = suggestedDedupIndex;
+
+            const particCol = headers.find(h => h.toLowerCase().includes('participar'));
+            if (particCol) {
+                filterColumn.value = particCol;
+                filterValue.value = "Sim";
+                enableFilter.checked = true;
+                filterDetails.classList.remove('hidden');
+            }
+
+            updateFilteredDataPreview();
+            showStep(2);
+        }
+
+        // CONTROLES DE INTERFACE DO PASSO 2
+        enableDedup.addEventListener('change', () => {
+            dedupFieldGroup.classList.toggle('hidden', !enableDedup.checked);
+            updateFilteredDataPreview();
+        });
+
+        enableFilter.addEventListener('change', () => {
+            filterDetails.classList.toggle('hidden', !enableFilter.checked);
+            updateFilteredDataPreview();
+        });
+
+        dedupColumn.addEventListener('change', updateFilteredDataPreview);
+        filterColumn.addEventListener('change', updateFilteredDataPreview);
+        filterValue.addEventListener('input', updateFilteredDataPreview);
+
+        function updateFilteredDataPreview() {
+            let pool = [...rawCsvData];
+
+            if (enableFilter.checked) {
+                const col = filterColumn.value;
+                const val = filterValue.value.trim().toLowerCase();
+                if (col && val) {
+                    pool = pool.filter(row => {
+                        const cellVal = String(row[col] || '').trim().toLowerCase();
+                        return cellVal.includes(val);
+                    });
+                }
+            }
+
+            if (enableDedup.checked) {
+                const col = dedupColumn.value;
+                if (col) {
+                    const seen = new Set();
+                    const unique = [];
+                    pool.forEach(row => {
+                        const key = String(row[col] || '').trim().toLowerCase();
+                        if (key && !seen.has(key)) {
+                            seen.add(key);
+                            unique.push(row);
+                        } else if (!key) {
+                            unique.push(row);
+                        }
+                    });
+                    pool = unique;
+                }
+            }
+
+            filteredData = pool;
+            totalParticipantsSpan.textContent = filteredData.length;
+            inputWinnerCount.max = Math.max(1, filteredData.length);
+        }
+
+        // FINALIZAR CONFIGURAÇÃO E IR PARA O SORTEIO
+        function finishSetup() {
+            updateFilteredDataPreview();
+
+            if (filteredData.length === 0) {
+                showModal("Nenhum participante restou após aplicar os filtros selecionados. Ajuste os filtros antes de prosseguir.");
+                return;
+            }
+
+            const cbs = document.querySelectorAll('#checkbox-container input:checked');
+            selectedFields = Array.from(cbs).map(cb => cb.value);
+            if (selectedFields.length === 0) {
+                showModal("Selecione ao menos um campo para exibir nos cards dos sorteados.");
+                return;
+            }
+
+            targetTitulares = parseInt(inputWinnerCount.value, 10);
+            targetSuplentes = parseInt(inputBackupCount.value, 10) || 0;
+
+            if (isNaN(targetTitulares) || targetTitulares < 1) {
+                showModal("Informe ao menos 1 ganhador titular.");
+                return;
+            }
+
+            if (targetTitulares + targetSuplentes > filteredData.length) {
+                showModal(`O total de sorteados solicitados (${targetTitulares + targetSuplentes}) é maior que o número de participantes disponíveis (${filteredData.length}).`);
+                return;
+            }
+
+            availableIndices = filteredData.map((_, i) => i);
+            winners = [];
+            drawnTitularesCount = 0;
+            drawnSuplentesCount = 0;
+            drawSessionHash = generateSessionHash();
+
+            statPool.textContent = filteredData.length;
+            statTitulares.textContent = `${drawnTitularesCount}/${targetTitulares}`;
+            statSuplentes.textContent = `${drawnSuplentesCount}/${targetSuplentes}`;
+            auditSeedSpan.textContent = `Sessão: #${drawSessionHash}`;
+
+            emptyState.style.display = 'block';
+            winnersListDiv.innerHTML = '';
+            winnersListDiv.appendChild(emptyState);
+
+            drawBtn.disabled = false;
+            drawAllBtn.disabled = false;
+            timerContainer.classList.add('hidden');
+
+            showStep(3);
+        }
+
+        // FLUXO DO SORTEIO (COM ANIMAÇÃO DE SHUFFLE E SUSPENSE)
+        function startDrawFlow() {
+            if (availableIndices.length === 0) {
+                showModal("Todos os participantes disponíveis já foram sorteados!");
+                return;
+            }
+
+            const isSuplente = drawnTitularesCount >= targetTitulares;
+            if (isSuplente && drawnSuplentesCount >= targetSuplentes) {
+                showModal("A meta de titulares e suplentes definida já foi totalmente alcançada!");
+                return;
+            }
+
+            const speedSec = parseInt(selectDrawSpeed.value, 10);
+
+            if (speedSec === 0) {
+                executePickWinner(isSuplente ? 'suplente' : 'titular');
+                return;
+            }
+
+            isDrawing = true;
+            drawBtn.disabled = true;
+            drawAllBtn.disabled = true;
+            timerContainer.classList.remove('hidden');
+
+            const tipoAtual = isSuplente ? 'Suplente' : 'Titular';
+            const numAtual = isSuplente ? (drawnSuplentesCount + 1) : (drawnTitularesCount + 1);
+            timerTitle.textContent = `Sorteando ${tipoAtual} #${numAtual}`;
+
+            let count = speedSec;
+            countdownDisplay.textContent = count;
+            countdownDisplay.style.animation = "pulse 0.8s infinite";
+            remainingDisplay.textContent = "Buscando vencedor imparcialmente...";
+
+            shuffleInterval = setInterval(() => {
+                const randIdx = Math.floor(Math.random() * availableIndices.length);
+                const sampleRow = filteredData[availableIndices[randIdx]];
+                const sampleText = selectedFields.map(f => sampleRow[f] || '').filter(Boolean).join(' | ');
+                shufflePreview.textContent = sampleText || 'Participante...';
+            }, 80);
+
+            countdownTimer = setInterval(() => {
+                count--;
+                countdownDisplay.textContent = count;
+
+                if (count <= 0) {
+                    clearInterval(countdownTimer);
+                    clearInterval(shuffleInterval);
+                    countdownDisplay.style.animation = "none";
+                    timerContainer.classList.add('hidden');
+
+                    executePickWinner(isSuplente ? 'suplente' : 'titular');
+
+                    isDrawing = false;
+                    drawBtn.disabled = false;
+                    drawAllBtn.disabled = false;
+                }
+            }, 1000);
+        }
+
+        function executePickWinner(tipo) {
+            if (availableIndices.length === 0) return;
+
+            const randomPointer = getSecureRandomInt(availableIndices.length);
+            const chosenIndex = availableIndices[randomPointer];
+            
+            availableIndices.splice(randomPointer, 1);
+
+            const personData = filteredData[chosenIndex];
+            const displayString = selectedFields.map(f => personData[f] || '').filter(Boolean).join(' • ');
+            const timestamp = new Date().toLocaleString('pt-BR');
+            const winnerAuthHash = generateSessionHash();
+
+            const winnerObj = {
+                tipo: tipo,
+                numero: tipo === 'titular' ? ++drawnTitularesCount : ++drawnSuplentesCount,
+                display: displayString,
+                data: personData,
+                time: timestamp,
+                authHash: winnerAuthHash
+            };
+
+            winners.push(winnerObj);
+            renderWinners();
+
+            statPool.textContent = availableIndices.length;
+            statTitulares.textContent = `${drawnTitularesCount}/${targetTitulares}`;
+            statSuplentes.textContent = `${drawnSuplentesCount}/${targetSuplentes}`;
+
+            if (tipo === 'titular' && typeof confetti === 'function') {
+                confetti({
+                    particleCount: 70,
+                    spread: 60,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        function drawRemainingInstantly() {
+            const neededTitulares = Math.max(0, targetTitulares - drawnTitularesCount);
+            const neededSuplentes = Math.max(0, targetSuplentes - drawnSuplentesCount);
+            const totalNeeded = neededTitulares + neededSuplentes;
+
+            if (totalNeeded === 0) {
+                showModal("Todas as vagas de titulares e suplentes já foram sorteadas!");
+                return;
+            }
+
+            for (let i = 0; i < neededTitulares && availableIndices.length > 0; i++) {
+                executePickWinner('titular');
+            }
+            for (let i = 0; i < neededSuplentes && availableIndices.length > 0; i++) {
+                executePickWinner('suplente');
+            }
+
+            if (typeof confetti === 'function') {
+                confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } });
+            }
+        }
+
+        function renderWinners() {
+            emptyState.style.display = 'none';
+            winnersListDiv.innerHTML = '';
+
+            [...winners].reverse().forEach(w => {
+                const card = document.createElement('div');
+                card.className = `winner-card ${w.tipo}`;
+                
+                const isTitular = w.tipo === 'titular';
+                const tagClass = isTitular ? 'tag-titular' : 'tag-suplente';
+                const tagLabel = isTitular ? `Titular #${w.numero}` : `Suplente #${w.numero}`;
+
+                card.innerHTML = `
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.35rem;">
+                            <span class="winner-tag ${tagClass}">${tagLabel}</span>
+                            <div class="winner-info" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                ${escapeHTML(w.display)}
+                            </div>
+                        </div>
+                        <div class="winner-meta">
+                            Autenticação: <code style="color: var(--primary);">${w.authHash}</code>
+                        </div>
+                    </div>
+                    <div class="winner-time" style="text-align: right; white-space: nowrap;">
+                        ${escapeHTML(w.time)}
+                    </div>
+                `;
+                winnersListDiv.appendChild(card);
+            });
+        }
+
+        // EXPORTAÇÃO CSV
+        function downloadLogCSV() {
+            if (winners.length === 0) {
+                showModal("Nenhum ganhador para exportar.");
+                return;
+            }
+
+            const exportHeaders = ["Tipo", "Posicao", ...headers, "Data_Hora", "Codigo_Autenticacao"];
+            const rows = winners.map(w => {
+                const rowObj = [
+                    w.tipo.toUpperCase(),
+                    w.numero,
+                    ...headers.map(h => `"${String(w.data[h] || '').replace(/"/g, '""')}"`),
+                    `"${w.time}"`,
+                    `"${w.authHash}"`
+                ];
+                return rowObj.join(',');
+            });
+
+            const csvContent = "\uFEFF" + [exportHeaders.join(','), ...rows].join('\r\n');
+            triggerDownload(csvContent, `OpenDraw_Resultado_${drawSessionHash}.csv`, "text/csv;charset=utf-8;");
+        }
+
+        // EXPORTAÇÃO TXT DE COMPROVAÇÃO
+        function downloadLogTXT() {
+            if (winners.length === 0) {
+                showModal("Nenhum ganhador para exportar.");
+                return;
+            }
+
+            let log = `==========================================================\n`;
+            log += `          RELATÓRIO OFICIAL DE AUDITORIA - OPEN DRAW       \n`;
+            log += `==========================================================\n\n`;
+            log += `Código da Sessão: #${drawSessionHash}\n`;
+            log += `Data de Emissão: ${new Date().toLocaleString('pt-BR')}\n`;
+            log += `Total de Participantes Elegíveis: ${filteredData.length}\n`;
+            log += `Metodologia: Web Crypto API (Criptograficamente Seguro)\n\n`;
+            log += `----------------------------------------------------------\n`;
+            log += `GANHADORES TITULARES:\n`;
+            log += `----------------------------------------------------------\n`;
+
+            const titulares = winners.filter(w => w.tipo === 'titular');
+            if (titulares.length === 0) log += `(Nenhum titular sorteado)\n`;
+            titulares.forEach(w => {
+                log += `#${w.numero} Titular: ${w.display}\n   Data/Hora: ${w.time} | Hash: ${w.authHash}\n\n`;
+            });
+
+            log += `----------------------------------------------------------\n`;
+            log += `SUPLENTES (RESERVAS):\n`;
+            log += `----------------------------------------------------------\n`;
+
+            const suplentes = winners.filter(w => w.tipo === 'suplente');
+            if (suplentes.length === 0) log += `(Nenhum suplente sorteado)\n`;
+            suplentes.forEach(w => {
+                log += `#${w.numero} Suplente: ${w.display}\n   Data/Hora: ${w.time} | Hash: ${w.authHash}\n\n`;
+            });
+
+            log += `==========================================================\n`;
+            log += `Fim do Relatório. Documento gerado por Open Draw.\n`;
+
+            triggerDownload(log, `OpenDraw_Comprovante_${drawSessionHash}.txt`, "text/plain;charset=utf-8;");
+        }
+
+        function triggerDownload(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // RESET COMPLETO
+        function resetApp() {
+            clearInterval(countdownTimer);
+            clearInterval(shuffleInterval);
+            
+            rawCsvData = [];
+            filteredData = [];
+            headers = [];
+            availableIndices = [];
+            winners = [];
+            selectedFields = [];
+            
+            targetTitulares = 1;
+            targetSuplentes = 0;
+            drawnTitularesCount = 0;
+            drawnSuplentesCount = 0;
+            isDrawing = false;
+            
+            fileInput.value = '';
+            inputWinnerCount.value = 1;
+            inputBackupCount.value = 0;
+            selectDrawSpeed.value = 5;
+            enableFilter.checked = false;
+            filterDetails.classList.add('hidden');
+            filterValue.value = '';
+
+            drawBtn.disabled = false;
+            drawAllBtn.disabled = false;
+            timerContainer.classList.add('hidden');
+            emptyState.style.display = 'block';
+            winnersListDiv.innerHTML = '';
+            winnersListDiv.appendChild(emptyState);
+            
+            showStep(1);
+        }
+    </script>
+</body>
+</html>
