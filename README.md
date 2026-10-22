@@ -66,28 +66,6 @@ Como o projeto é construído em HTML5, CSS3 e JavaScript puro, não é necessá
 
 ---
 
-## 🌐 Como Publicar no GitHub Pages (Grátis em 1 Minuto)
-
-Você pode hospedar o **Open Draw** gratuitamente no GitHub Pages para acessá-lo de qualquer dispositivo:
-
-1. Crie um repositório no GitHub chamado `open-draw`.
-2. Envie os arquivos para o repositório:
-   ```bash
-   git remote add origin https://github.com/SEU_USUARIO/open-draw.git
-   git branch -M main
-   git push -u origin main
-   ```
-3. No GitHub, acesse seu repositório e vá em:
-   **Settings** (Configurações) ➔ **Pages** (no menu lateral esquerdo).
-4. Em **Build and deployment** / **Branch**:
-   - Selecione a branch `main`.
-   - Mantenha a pasta como `/(root)`.
-   - Clique em **Save**.
-5. Em instantes, seu sorteador estará online no endereço:
-   `https://SEU_USUARIO.github.io/open-draw/`
-
----
-
 ## 📋 Formato Recomendado do CSV
 
 O Open Draw aceita qualquer arquivo CSV com cabeçalhos na primeira linha. Exemplo:
